@@ -16,7 +16,7 @@ const warningResponse = (res, message, statusCode = 400, data = {}) => {
     });
 };
 
-const errorResponse = (res, message, error = null, statusCode = 400) => {
+const errorResponse = (res, message, error = null, statusCode = 400, data = {}) => {
     return res.status(statusCode).json({
         success: false,
         message,

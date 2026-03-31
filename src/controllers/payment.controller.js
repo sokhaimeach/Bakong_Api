@@ -1,8 +1,9 @@
 const Payment = require("../models/payment.model");
 const Order = require("../models/order.model");
-const { generateQrCode } = require("../services/bakong.service");
+const { generateQrCode, checkTransactionStatus } = require("../services/bakong.service");
 const { errorResponse, warningResponse, successResponse } = require("../helpers/response.helper");
 const QRCode = require("qrcode");
+const mongoose = require("mongoose");
 
 // POST : api/v1/payments Create new payment for order
 const generateQrAndPayment = async (req, res) => {
@@ -97,7 +98,70 @@ const previewQrByPaymentId = async (req, res) => {
     }
 };
 
+// GET : /api/v1/payments/:id/status Check payment status by payment ID
+const checkPaymentStatus = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const payment = await Payment.findById(id);
+        if (!payment) {
+            return warningResponse(res, "Payment not found", 200, {
+                status: null,
+                paidAt: null
+            });
+        }
+
+        const currentTime = Date.now();
+        const expirationTime = new Date(payment.expiration);
+        if (currentTime > expirationTime) {
+            await Payment.findByIdAndUpdate(payment._id, { status: "EXPIRED" });
+            return warningResponse(res, "Payment has expired", 200, {
+                status: "EXPIRED",
+                paidAt: null
+            });
+        }
+
+        const order = await Order.findById(payment.orderId);
+        if (!order) {
+            return warningResponse(res, "Associated order not found", 200, {
+                status: payment.status,
+                paidAt: null
+            });
+        }
+
+        const bakongResponse = await checkTransactionStatus(payment.md5);
+        if (bakongResponse && bakongResponse.responseCode === 0) {
+            const now = new Date();
+            await Payment.findByIdAndUpdate(payment._id, {
+                status: "PAID",
+                bakongHash: bakongResponse.data.hash,
+                fromAccountId: bakongResponse.data.fromAccountId,
+                toAccountId: bakongResponse.data.toAccountId,
+                paidAt: now
+            });
+
+            await Order.findByIdAndUpdate(order._id, {
+                paid: true,
+                paidAt: now
+            });
+
+            return successResponse(res, "Payment has been confirmed", {
+                status: "PAID",
+                paidAt: now
+            });
+        }
+
+        return warningResponse(res, "Payment not completed yet", 200, {
+            status: payment.status,
+            paidAt: null
+        });
+    } catch (error) {
+        console.error("Error checking payment status:", error);
+        return errorResponse(res, "Error checking payment status", error.message, 500, {});
+    }
+}
+
 module.exports = {
     generateQrAndPayment,
-    previewQrByPaymentId
+    previewQrByPaymentId,
+    checkPaymentStatus
 };

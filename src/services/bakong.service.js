@@ -44,7 +44,7 @@ async function generateQrCode(paymentData) {
             currency: currency === "KHR"? khqrData.currency.khr : khqrData.currency.usd,
             amount: parseFloat(amount),
             billNumber: orderId,
-            storeLabel: "Your Label name", // Should be from .env
+            storeLabel: process.env.STORE_LABEL || "Your Label name",
             terminalLabel: "Online Payment",
             expirationTimestamp: expirationDate.getTime(),
             // merchantCategoryCode: "1234", // Example code
@@ -52,9 +52,8 @@ async function generateQrCode(paymentData) {
 
         const individualInfo = new IndividualInfo(
             process.env.BAKONG_ACCOUNT_ID,
-            optionalData.currency,
-            "Bun Seng Tri", // Should be from .env
-            "Phnom Penh",
+            process.env.BAKONG_MERCHANT_NAME || "Meach Sokhai", // Should be from .env
+            process.env.LOCATION || "Phnom Penh",
             optionalData
         );
 
@@ -73,7 +72,7 @@ async function generateQrCode(paymentData) {
 // Checks the status of a transaction with the Bakong API.
 async function checkTransactionStatus(md5) {
     try {
-        const accessToken = await this._getAccessToken();
+        const accessToken = process.env.BAKONG_ACCESS_TOKEN; // For simplicity, using the token from .env. In production, should use _getAccessToken() to ensure it's valid.
         const response = await axios.post(
             `${process.env.BAKONG_PROD_BASE_API_URL}/check_transaction_by_md5`,
             { md5 },

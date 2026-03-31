@@ -19,7 +19,7 @@ const paymentSchema = new mongoose.Schema({
 
     // Timestamps
     createdAt: { type: Date, default: Date.now },
-    paidAt: { type: Date }
+    paidAt: { type: Date, default: null }
 });
 
 module.exports = mongoose.model("Payment", paymentSchema);
